@@ -1,0 +1,3 @@
+/home/jackbuntu/workspace/mcmc-triangulation/src/build/CMakeFiles/MCMC.dir
+/home/jackbuntu/workspace/mcmc-triangulation/src/build/CMakeFiles/edit_cache.dir
+/home/jackbuntu/workspace/mcmc-triangulation/src/build/CMakeFiles/rebuild_cache.dir

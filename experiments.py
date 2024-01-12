@@ -80,6 +80,7 @@ def bmw_ring_experiment(root_dir, input_cloud=None, output_cloud_dir=None, visua
                                                           points=np.array(pcd.points),
                                                           colors=pcd.colors)
 
+
   ba_encoding_file = "problem_encodings/ring_problem_input_true.txt"
   geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, ba_encoding_file,
                                          pixel_noise_scale=0.0, translation_noise_scale=0.0, rotation_noise_scale=0.0)
@@ -259,29 +260,30 @@ def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,pl
   correspondences = image_utils.rasterize(cameras=cameras,indices_to_project=indices,
                                                           points=np.array(pcd.points),
                                                           colors=pcd.colors)
-  images = image_utils.render_all_images(correspondences, np.array(pcd.points), pcd.colors, img_dim)
-  triangulated = geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.2, pairwise=True, save_dir=output_cloud_dir)
-  camera_indices = [0,1]
-  mean_A, variance_A = geometry_utils.mh_analysis_for_point(cameras, correspondences, triangulated, camera_indices, 0)
+  #images = image_utils.render_all_images(correspondences, np.array(pcd.points), pcd.colors, img_dim)
+  #triangulated = geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.2, pairwise=True, save_dir=output_cloud_dir)
+  #camera_indices = [0,1]
+  output_file = "small_angles.txt"
+  geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
+  #mean_A, variance_A = geometry_utils.mh_analysis_for_point(cameras, correspondences, triangulated, camera_indices, 0)
 
 
   cameras = list()
   cameras = geometry_utils.make_cameras(center, camera_radius, up_direction, n_cameras, distance=angle_distance_large)
   cameras = [general_utils.package_camera(camera, camera_parameters, 'camera_' + str(i)) for i, camera in enumerate(cameras)]
-  # subsample point cloud indices
-  indices = np.arange(len(pcd.points))
-  indices = np.random.permutation(indices)
-  indices = indices[:n_points]
   # correspondences[point_idx] = [(x,y), z] where (x,y) is a pixel coord and z is depth
   correspondences = image_utils.rasterize(cameras=cameras,indices_to_project=indices,
                                                           points=np.array(pcd.points),
                                                           colors=pcd.colors)
-  images = image_utils.render_all_images(correspondences, np.array(pcd.points), pcd.colors, img_dim)
-  triangulated = geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.2, pairwise=True, save_dir=output_cloud_dir)
-  camera_indices = [0,1]
-  mean_B, variance_B = geometry_utils.mh_analysis_for_point(cameras, correspondences, triangulated, camera_indices, 0)
+  #images = image_utils.render_all_images(correspondences, np.array(pcd.points), pcd.colors, img_dim)
+  #triangulated = geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.2, pairwise=True, save_dir=output_cloud_dir)
+  #camera_indices = [0,1]
+  #mean_B, variance_B = geometry_utils.mh_analysis_for_point(cameras, correspondences, triangulated, camera_indices, 0)
 
+  output_file = "large_angles.txt"
+  geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
 
+  return
   ax = plot_cov_ellipses([variance_A, variance_B])
   ax.set_xlabel('X axis')
   ax.set_ylabel('Y axis')
