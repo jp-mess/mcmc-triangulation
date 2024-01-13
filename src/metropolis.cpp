@@ -8,6 +8,22 @@
 #include <random>
 #include<chrono>
 
+void printProgressBar(int iteration, int total, int barWidth = 70) {
+    float progress = static_cast<float>(iteration) / total;
+    int pos = static_cast<int>(barWidth * progress);
+
+    std::cout << "[";
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << int(progress * 100.0) << " %\r";
+    std::cout.flush();
+}
+
+
+
 // Define a struct for camera parameters
 struct Camera {
     Eigen::Vector3d rotation;  // Angle-axis rotation
@@ -125,10 +141,9 @@ Eigen::Matrix3d compute_sample_covariance(const std::vector<Eigen::Vector3d>& sa
 }
 
 
-void refine_variance(PointStruct& pointStruct) {
+void refine_variance(PointStruct& pointStruct, const int MAX_ITERS) {
     auto start = std::chrono::high_resolution_clock::now();  // Start timing
 
-    const int MAX_ITERS = 10000;
     int counter = 0;
     std::vector<Eigen::Vector3d> samples;
     samples.push_back(pointStruct.mean); // Initial sample
@@ -278,6 +293,36 @@ void savePointStructToFile(const PointStruct& pointStruct, const std::string& fi
     file.close();
 }
 
+void refine_variances_in_mcmc(MCMCSimulation& mcmc, const int NUM_POINTS) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, mcmc.points.size() - 1);
+
+    std::ofstream file("means_and_covariances.txt");
+    if (!file.is_open()) {
+        std::cerr << "Error opening file for writing." << std::endl;
+        return;
+    }
+    
+    // Eigen::Matrix3d previous_variance;
+
+    for (int i = 0; i < NUM_POINTS; ++i) {
+        int index = dis(gen);  // Randomly select a PointStruct
+        // if (i > 0) {
+        //   mcmc.points[index].initial_variance = previous_variance;
+        // } 
+        refine_variance(mcmc.points[index], 2000);
+
+        // Save the mean and covariance of the refined PointStruct
+        file << "Mean:\n" << mcmc.points[index].mean.transpose() << "\n";
+        file << "Variance:\n" << mcmc.points[index].initial_variance << "\n\n";
+        printProgressBar(i + 1, NUM_POINTS);
+        // previous_variance = mcmc.points[index].initial_variance;
+    }
+
+    file.close();
+}
+
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -295,12 +340,14 @@ int main(int argc, char* argv[]) {
 
     SaveToBALFile("text.txt", cameras, points);
 
-    assess_reprojection_errors(mcmc);
+    // assess_reprojection_errors(mcmc);
     
-    int idx = 0;
-    refine_variance(mcmc.points[idx]);
-    std::cout << "Final Covariance Matrix:\n" << mcmc.points[idx].initial_variance << "\n";
-    savePointStructToFile(mcmc.points[idx], "output.txt");
+    refine_variances_in_mcmc(mcmc, 1000);
+
+    //int idx = 0;
+    //refine_variance(mcmc.points[idx]);
+    //std::cout << "Final Covariance Matrix:\n" << mcmc.points[idx].initial_variance << "\n";
+    //savePointStructToFile(mcmc.points[idx], "output.txt");
 
     // mcmc.Run();
 
