@@ -1,5 +1,5 @@
 CMakeFiles/MCMC.dir/metropolis.cpp.o: \
- /home/jackbuntu/workspace/mcmc-triangulation/src/metropolis.cpp \
+ /mnt/d/data/mcmc-triangulation/src/metropolis.cpp \
  /usr/include/stdc-predef.h /usr/include/c++/9/iostream \
  /usr/include/x86_64-linux-gnu/c++/9/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/9/bits/os_defines.h \

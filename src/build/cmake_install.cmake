@@ -1,4 +1,4 @@
-# Install script for directory: /home/jackbuntu/workspace/mcmc-triangulation/src
+# Install script for directory: /mnt/d/data/mcmc-triangulation/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/jackbuntu/workspace/mcmc-triangulation/src/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/mnt/d/data/mcmc-triangulation/src/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

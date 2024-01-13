@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/jackbuntu/workspace/mcmc-triangulation/src/metropolis.cpp" "CMakeFiles/MCMC.dir/metropolis.cpp.o" "gcc" "CMakeFiles/MCMC.dir/metropolis.cpp.o.d"
+  "/mnt/d/data/mcmc-triangulation/src/metropolis.cpp" "CMakeFiles/MCMC.dir/metropolis.cpp.o" "gcc" "CMakeFiles/MCMC.dir/metropolis.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
