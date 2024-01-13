@@ -5,6 +5,8 @@
 #include <eigen3/Eigen/Dense>
 #include <sstream>
 #include <unordered_map>
+#include <random>
+#include<chrono>
 
 // Define a struct for camera parameters
 struct Camera {
@@ -36,6 +38,26 @@ public:
         // Implement MCMC algorithm here
     }
 };
+
+double calculate_reprojection_error(const Camera& camera, const Eigen::Vector3d& point, const Eigen::Vector2d& observed_pixel) {
+    // Convert angle-axis rotation to rotation matrix
+    Eigen::AngleAxisd rotation_vector(camera.rotation.norm(), camera.rotation.normalized());
+    Eigen::Matrix3d rotation_matrix = rotation_vector.toRotationMatrix();
+
+    // Transform the point from world coordinates to camera coordinates
+    Eigen::Vector3d point_camera = rotation_matrix.transpose() * (point - camera.translation);
+
+    // Project the point onto the image plane
+    // Assuming the camera points along the z-axis and z>0 is in front of the camera
+    double x_projected = camera.focal_length * (point_camera.x() / point_camera.z()) + camera.cx;
+    double y_projected = camera.focal_length * (point_camera.y() / point_camera.z()) + camera.cy;
+
+    // Calculate the reprojection error
+    Eigen::Vector2d projected_pixel(x_projected, y_projected);
+    Eigen::Vector2d error = observed_pixel - projected_pixel;
+
+    return error.norm();  // Return the Euclidean distance (L2 norm) of the error
+}
 
 void LoadPoints(const std::string& filename, std::vector<Camera>& cameras, std::vector<PointStruct>& points) {
     std::ifstream file(filename);
@@ -76,6 +98,85 @@ void LoadPoints(const std::string& filename, std::vector<Camera>& cameras, std::
     
 }
 
+// Gaussian error function
+double gaussian_error_function(double x, double mu = 0.0, double sigma = 1.0) {
+    return std::exp(-std::pow(x - mu, 2) / (2 * std::pow(sigma, 2)));
+}
+
+Eigen::Matrix3d compute_sample_covariance(const std::vector<Eigen::Vector3d>& samples) {
+    if (samples.size() < 2) {
+        throw std::runtime_error("Not enough samples to compute covariance.");
+    }
+
+    Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+    for (const auto& sample : samples) {
+        mean += sample;
+    }
+    mean /= samples.size();
+
+    Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
+    for (const auto& sample : samples) {
+        Eigen::Vector3d diff = sample - mean;
+        covariance += diff * diff.transpose();
+    }
+    covariance /= (samples.size() - 1);
+
+    return covariance;
+}
+
+
+void refine_variance(PointStruct& pointStruct) {
+    auto start = std::chrono::high_resolution_clock::now();  // Start timing
+
+    const int MAX_ITERS = 10000;
+    int counter = 0;
+    std::vector<Eigen::Vector3d> samples;
+    samples.push_back(pointStruct.mean); // Initial sample
+    double previous_fx = 1.0;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<double> dist(0.0, 1.0);
+
+    for (int i = 0; i < MAX_ITERS; ++i) {
+        Eigen::Vector3d next_point = samples.back() + Eigen::Vector3d(dist(gen), dist(gen), dist(gen)).cwiseProduct(pointStruct.initial_variance.diagonal());
+
+        std::vector<double> errors;
+        for (size_t j = 0; j < pointStruct.cameras.size(); ++j) {
+            double error = calculate_reprojection_error(pointStruct.cameras[j], next_point, pointStruct.observations[j]);
+            errors.push_back(error);
+        }
+
+        double mean_error = std::accumulate(errors.begin(), errors.end(), 0.0) / errors.size();
+
+        if (mean_error >= 1.0) continue;
+
+        double accept = std::uniform_real_distribution<>(0.0, 1.0)(gen);
+        double current_fx = gaussian_error_function(mean_error);
+        double ratio = std::min(1.0, current_fx / previous_fx);
+
+        if (accept < ratio) {
+            samples.push_back(next_point);
+            previous_fx = current_fx;
+            counter++;
+        }
+
+        if (counter > 250) {
+            // Update variance
+            // TODO: Implement variance update
+            pointStruct.initial_variance = compute_sample_covariance(samples);
+            counter = 0;
+        }
+    }
+  
+    pointStruct.initial_variance = compute_sample_covariance(samples);
+    auto end = std::chrono::high_resolution_clock::now();    // End timing
+    std::chrono::duration<double> elapsed = end - start;     // Calculate elapsed time
+    // std::cout << "Elapsed time: " << elapsed.count() << " seconds.\n";
+    // std::cout << "Final Covariance Matrix:\n" << pointStruct.initial_variance << "\n";
+}
+
+
 void LoadMCMC(const std::string& filename, const std::vector<Camera>& cameras, std::vector<PointStruct>& points, MCMCSimulation& mcmc) {
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -108,25 +209,6 @@ void LoadMCMC(const std::string& filename, const std::vector<Camera>& cameras, s
     mcmc.points = points;
 }
 
-double calculate_reprojection_error(const Camera& camera, const Eigen::Vector3d& point, const Eigen::Vector2d& observed_pixel) {
-    // Convert angle-axis rotation to rotation matrix
-    Eigen::AngleAxisd rotation_vector(camera.rotation.norm(), camera.rotation.normalized());
-    Eigen::Matrix3d rotation_matrix = rotation_vector.toRotationMatrix();
-
-    // Transform the point from world coordinates to camera coordinates
-    Eigen::Vector3d point_camera = rotation_matrix.transpose() * (point - camera.translation);
-
-    // Project the point onto the image plane
-    // Assuming the camera points along the z-axis and z>0 is in front of the camera
-    double x_projected = camera.focal_length * (point_camera.x() / point_camera.z()) + camera.cx;
-    double y_projected = camera.focal_length * (point_camera.y() / point_camera.z()) + camera.cy;
-
-    // Calculate the reprojection error
-    Eigen::Vector2d projected_pixel(x_projected, y_projected);
-    Eigen::Vector2d error = observed_pixel - projected_pixel;
-
-    return error.norm();  // Return the Euclidean distance (L2 norm) of the error
-}
 
 
 void SaveToBALFile(const std::string& filename, const std::vector<Camera>& cameras, const std::vector<PointStruct>& points) {
@@ -180,6 +262,23 @@ void assess_reprojection_errors(MCMCSimulation& mcmc) {
     }
 }
 
+void savePointStructToFile(const PointStruct& pointStruct, const std::string& filename) {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
+    }
+
+    // Save the mean
+    file << "Mean:\n" << pointStruct.mean.transpose() << "\n";
+
+    // Save the variance
+    file << "Variance:\n" << pointStruct.initial_variance << "\n";
+
+    file.close();
+}
+
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <path_to_bal_file.txt>" << std::endl;
@@ -198,6 +297,11 @@ int main(int argc, char* argv[]) {
 
     assess_reprojection_errors(mcmc);
     
+    int idx = 0;
+    refine_variance(mcmc.points[idx]);
+    std::cout << "Final Covariance Matrix:\n" << mcmc.points[idx].initial_variance << "\n";
+    savePointStructToFile(mcmc.points[idx], "output.txt");
+
     // mcmc.Run();
 
     return 0; // Successful execution
