@@ -265,11 +265,12 @@ def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,pl
                                                           colors=pcd.colors)
   output_file = "small_angles.txt"
   geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
+  geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.1, pairwise=True, save_dir="small")
   
-  if visualize_frustums:
+  if False:
     print("visualizing frustums") 
     import frustum_visualizer
-    visualizer = frustum_visualizer.PointCloudCameraVisualizer(pcd, cameras, center)
+    visualizer = frustum_visualizer.PointCloudCameraVisualizer(cloud_name, cameras, center)
     visualizer.visualize()
 
   cameras = list()
@@ -281,6 +282,7 @@ def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,pl
                                                           colors=pcd.colors)
   output_file = "large_angles.txt"
   geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
+  geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.1, pairwise=True, save_dir="large")
 
 
 
