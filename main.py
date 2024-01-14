@@ -11,13 +11,12 @@ np.random.seed(107)
 
 if __name__ == "__main__":
   # where to store and generate data (ideally not in the WSL) 
-  root_dir = '/mnt/c/Users/Jack/Documents/pc_data'
+  root_dir = "/mnt/d/data/mcmc-triangulation/source_clouds"
 
-  input_cloud = os.path.join(root_dir,'source_point_clouds','bmw.ply')
+  input_cloud = os.path.join(root_dir,'bmw.ply')
   output_cloud_dir = os.path.join(root_dir,'output_clouds')
 
   #experiments.bmw_retriangulation_experiment(root_dir, input_cloud=input_cloud, output_cloud_dir=output_cloud_dir)
-  #experiments.bmw_ring_experiment(root_dir, input_cloud=input_cloud, output_cloud_dir=output_cloud_dir)
   experiments.bmw_metropolis_experiment(root_dir, input_cloud=input_cloud, output_cloud_dir=output_cloud_dir)
   
 

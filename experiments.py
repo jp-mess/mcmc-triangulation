@@ -220,7 +220,7 @@ def plot_cov_ellipses(covariances, nstd=2, ax=None):
 
 
 
-def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,plot_rendered_images=False, visualize_frustrums=False):
+def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,plot_rendered_images=False, visualize_frustums=True):
   import geometry_utils
   import image_utils
   import general_utils
@@ -265,6 +265,12 @@ def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,pl
                                                           colors=pcd.colors)
   output_file = "small_angles.txt"
   geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
+  
+  if visualize_frustums:
+    print("visualizing frustums") 
+    import frustum_visualizer
+    visualizer = frustum_visualizer.PointCloudCameraVisualizer(pcd, cameras, center)
+    visualizer.visualize()
 
   cameras = list()
   cameras = geometry_utils.make_cameras(center, camera_radius, up_direction, n_cameras, distance=angle_distance_large)

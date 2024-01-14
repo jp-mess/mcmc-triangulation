@@ -158,8 +158,11 @@ if __name__ == "__main__":
   import numpy as np
   import geometry_utils
 
-  eigen_file = "src/build/means_and_covariances.txt"
-  bal_file = "small_angles.txt"
+  #eigen_file = "small_covariances.txt"
+  #bal_file = "small_angles.txt"
+
+  eigen_file = "large_covariances.txt"
+  bal_file = "large_angles.txt"
 
   cameras, points = geometry_utils.load_bal_problem_file(bal_file)
 
