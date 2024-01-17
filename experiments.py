@@ -285,5 +285,69 @@ def bmw_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,pl
   geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.1, pairwise=True, save_dir="large")
 
 
+def guanyin_metropolis_experiment(root_dir,input_cloud=None,output_cloud_dir=None,plot_rendered_images=False, visualize_frustums=True):
+  import geometry_utils
+  import image_utils
+  import general_utils
+  import numpy as np
+  import open3d as o3d
+  import matplotlib.pyplot as plt
+
+  n_cameras = 3
+  
+  img_dim = 600
+  cx = img_dim // 2
+  cy = img_dim // 2
+  foc = 525
+  camera_parameters = general_utils.create_pinhole(foc,foc,cx,cy)
+
+  n_points = 500000 // 30
+  camera_radius = 2
+
+  angle_distance_small = 5
+  angle_distance_large = 100
+
+  # to find the center of the pcd, use CloudCompare or something
+  center = np.array([-0.199, -00.044, -0.55])
+  pcd = o3d.io.read_point_cloud(input_cloud)
+
+  # point N cameras at the center of the point cloud (all around the same point on the sphere,
+  # with slight variation)  
+  up_direction = "y"
+  # subsample point cloud indices
+  indices = np.arange(len(pcd.points))
+  indices = np.random.permutation(indices)
+  indices = indices[:n_points]
+
+
+  cameras = list()
+  cameras = geometry_utils.make_cameras(center, camera_radius, up_direction, n_cameras, distance=angle_distance_small)
+  cameras = [general_utils.package_camera(camera, camera_parameters, 'camera_' + str(i)) for i, camera in enumerate(cameras)]
+
+  # correspondences[point_idx] = [(x,y), z] where (x,y) is a pixel coord and z is depth
+  correspondences = image_utils.rasterize(cameras=cameras,indices_to_project=indices,
+                                                          points=np.array(pcd.points),
+                                                          colors=pcd.colors)
+  output_file = "small_angles.txt"
+  geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
+  geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.1, pairwise=True, save_dir="small")
+  
+  if True:
+    print("visualizing frustums") 
+    import frustum_visualizer
+    cloud_name = input_cloud
+    visualizer = frustum_visualizer.PointCloudCameraVisualizer(cloud_name, cameras, center, dim=0.1, ball_size = 0.05 / 2, view_length=2)
+    visualizer.visualize()
+
+  cameras = list()
+  cameras = geometry_utils.make_cameras(center, camera_radius, up_direction, n_cameras, distance=angle_distance_large)
+  cameras = [general_utils.package_camera(camera, camera_parameters, 'camera_' + str(i)) for i, camera in enumerate(cameras)]
+  # correspondences[point_idx] = [(x,y), z] where (x,y) is a pixel coord and z is depth
+  correspondences = image_utils.rasterize(cameras=cameras,indices_to_project=indices,
+                                                          points=np.array(pcd.points),
+                                                          colors=pcd.colors)
+  output_file = "large_angles.txt"
+  geometry_utils.create_bal_problem_file(correspondences, n_cameras, np.array(pcd.points), cameras, output_file, translation_noise_scale = 0.0, rotation_noise_scale = 0.0, pixel_noise_scale = 0.0)
+  geometry_utils.retriangulate(cameras, correspondences, np.array(pcd.points), noise_scale=0.1, pairwise=True, save_dir="large")
 
 

@@ -17,7 +17,7 @@ class CharcoalBackground:
 
 
 class PointCloudCameraVisualizer:
-    def __init__(self, pcd, cameras, center_point, ring_dict=None, draw_green_directions=True):
+    def __init__(self, pcd, cameras, center_point, ring_dict=None, draw_green_directions=True, dim=0.2, ball_size=0.05, view_length=5):
         if isinstance(pcd, str):
             self.pcd = o3d.io.read_point_cloud(pcd)
         else:
@@ -28,6 +28,9 @@ class PointCloudCameraVisualizer:
         self.ring_dict = ring_dict
         self.draw_green_directions = draw_green_directions
         self.cmap = WhiteBackground()
+        self.dim = dim
+        self.ball_size = ball_size
+        self.view_length = view_length
 
     def create_plane(self, center, normal, size=1.0, thickness=0.01, color=[0.53, 0.81, 0.92]):
         box = o3d.geometry.TriangleMesh.create_box(width=size, height=thickness, depth=size)
@@ -133,10 +136,10 @@ class PointCloudCameraVisualizer:
     def visualize(self):
         visual_elements = [self.pcd]
         for camera in self.cameras:
-            camera_marker = self.create_camera_marker(camera['extrinsic'][:3, 3])
-            frustum = self.create_frustum(camera['extrinsic'])
+            camera_marker = self.create_camera_marker(camera['extrinsic'][:3, 3], self.ball_size)
+            frustum = self.create_frustum(camera['extrinsic'], dim = self.dim)
             if self.draw_green_directions:
-              line = self.create_direction_line(camera['extrinsic'])
+              line = self.create_direction_line(camera['extrinsic'],length=self.view_length)
               visual_elements.extend([camera_marker, line, frustum])
             else:
               visual_elements.extend([camera_marker, frustum])
@@ -154,5 +157,7 @@ class PointCloudCameraVisualizer:
 
         opt = vis.get_render_option()
         opt.background_color = np.asarray(self.cmap.background)  # Charcoal grey background
+        render_option = vis.get_render_option()
+        render_option.point_size = 1.0
         vis.run()
         vis.destroy_window()
