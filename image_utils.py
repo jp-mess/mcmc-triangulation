@@ -82,43 +82,113 @@ def render_all_images(correspondences, points, colors, img_dim):
     rendered.append(render_coordinates(images[idx], (img_dim, img_dim), color_map[idx]))
   return rendered
 
+def rectilinear_distort(point, k, p):
+    """
+    Apply rectilinear (radial and tangential) distortion to a 2D point.
+    point: A 2D point in the normalized image plane (x, y).
+    k: List or array of radial distortion coefficients (at least two: k1, k2).
+    p: List or array of tangential distortion coefficients (p1, p2).
+    """
+    y, x = point
+    x2 = x * x
+    y2 = y * y
+    r2 = x2 + y2
+    xy = x * y
 
-"""
-get a list of image correspondences for every unique point
-in the point cloud
-"""
-def rasterize(cameras,indices_to_project,points,colors):
-  import numpy as np 
-  import copy
+    # Radial distortion
+    k1, k2 = k[0], k[1]
+    radial_distortion = (1 + k1 * r2 + k2 * r2 * r2)
 
-  cameras = copy.deepcopy(cameras)
+    x_radial = x * radial_distortion
+    y_radial = y * radial_distortion
+
+    # Tangential distortion
+    p1, p2 = p[0], p[1]
+    x_tangential = 2 * p1 * xy + p2 * (r2 + 2 * x2)
+    y_tangential = p1 * (r2 + 2 * y2) + 2 * p2 * xy
+
+    # Apply distortion
+    x_distorted = x_radial + x_tangential
+    y_distorted = y_radial + y_tangential
+
+    return np.array([y_distorted, x_distorted])
+
+
+def fisheye_distort(pixel_point, k, intrinsic_params):
+    """
+    Apply fisheye distortion to a 2D point in pixel coordinates.
+    pixel_point: A 2D point in pixel coordinates (x, y).
+    k: Distortion coefficient.
+    intrinsic_params: used to normalize image coordinates
+    """
+    fx = fy = intrinsic_params[0,0]
+    cx = intrinsic_params[0,2]
+    cy = intrinsic_params[1,2]
+
+    # Convert from pixel coordinates to normalized image coordinates
+    x = (pixel_point[1] - cx) / fx
+    y = (pixel_point[0] - cy) / fy
+
+    r = np.sqrt(x**2 + y**2)  # Radial distance from the center
+    theta = np.arctan(r)
+
+    # Apply fisheye distortion
+    theta_d = theta * (1 + k * theta**2)
   
+    # Scale back to normalized image plane
+    x_distorted = (theta_d / r) * x if r != 0 else x
+    y_distorted = (theta_d / r) * y if r != 0 else y
 
-  pixels = list()
-  correspondences = dict()
+    # Optionally, convert back to pixel coordinates
+    x_pixel_distorted = x_distorted * fx + cx
+    y_pixel_distorted = y_distorted * fy + cy
 
-  for camera_obj in cameras:
-    for point_idx in indices_to_project:
-      pose = camera_obj['extrinsic']
-      intrinsic_params = camera_obj['intrinsic']
-      camera_center = pose[:3,3]
-      
-      point_hom = np.append(points[point_idx,:],1).reshape((4,1))
-      point_hom = np.matmul(np.linalg.pinv(pose),point_hom)
-      point_hom = point_hom[:3]
+    return np.array([y_pixel_distorted, x_pixel_distorted])
 
-      pixel = np.matmul(intrinsic_params,point_hom)
-      pixel = pixel[:2] / pixel[2]
-      pixel = pixel.flatten().astype(float)
 
-      pixels.append(pixel)
 
-      if point_idx not in correspondences:
-        correspondences[point_idx] = list()
-    
-      correspondences[point_idx].append((pixel,np.linalg.norm(point_hom)))
-    
-  return correspondences
+
+def rasterize(cameras, indices_to_project, points, colors):
+    import numpy as np
+    import copy
+
+    cameras = copy.deepcopy(cameras)
+
+    pixels = list()
+    correspondences = dict()
+
+    for camera_obj in cameras:
+        # Retrieve the fisheye distortion coefficient
+        k = camera_obj['distortion']
+
+        for point_idx in indices_to_project:
+            pose = camera_obj['extrinsic']
+            intrinsic_params = camera_obj['intrinsic']
+            camera_center = pose[:3, 3]
+
+            point_hom = np.append(points[point_idx, :], 1).reshape((4, 1))
+            point_hom = np.matmul(np.linalg.pinv(pose), point_hom)
+            point_hom = point_hom[:3]
+
+            # Compute pixel coordinates before distortion
+            pixel = np.matmul(intrinsic_params, point_hom)
+            pixel = pixel[:2] / pixel[2]
+            pixel = pixel.flatten().astype(float)
+
+            # Apply fisheye distortion
+            pixel_distorted = fisheye_distort(pixel, k, intrinsic_params)
+            #print(pixel, pixel_distorted)
+            pixel = pixel_distorted
+
+            pixels.append(pixel)
+
+            if point_idx not in correspondences:
+                correspondences[point_idx] = list()
+
+            correspondences[point_idx].append((pixel, np.linalg.norm(point_hom)))
+
+    return correspondences
+
 
 
 """

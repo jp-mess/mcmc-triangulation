@@ -404,7 +404,7 @@ pairwise = True will perform pairwise triangulation (one world point for
 each view edge, while pairwise = False will do multiview triangulation
 i.e. one world point for all N cameras that saw the same point_idx)
 """ 
-def retriangulate(cameras, correspondences, points, noise_scale=0.0, pairwise=True, save_dir=None):
+def retriangulate(cameras, correspondences, points, noise_scale=0.0, do_lm=True, pairwise=True, save_dir=None):
   import numpy as np
   import open3d as o3d
   import os
@@ -416,13 +416,19 @@ def retriangulate(cameras, correspondences, points, noise_scale=0.0, pairwise=Tr
   triangulated = list()
   errors = list()
 
-  for point_idx in correspondences:
+  from tqdm import tqdm
+
+  for point_idx in tqdm(correspondences):
     # each coord is [(x,y) z] and we just want the (x,y) pixels
     pixels = [coords[0] for coords in correspondences[point_idx]]
     for pix_idx in range(len(pixels)):
       pixels[pix_idx] = pixels[pix_idx] + np.random.normal(0,noise_scale,size=2)
       
-      result = DLT(cameras,pixels,pairwise=pairwise)
+      if do_lm:
+        result = nonlinear_triangulation(cameras, pixels, pairwise=pairwise)
+      else:
+        result = DLT(cameras, pixels, pairwise=pairwise)
+
       triangulated.extend(result)
       
       err = np.mean([np.linalg.norm(p - points[point_idx,:]) for p in result])
@@ -472,6 +478,37 @@ def project_point_to_image(point_3d, camera):
     point_img = point_img_homog[:2] / point_img_homog[2]
 
     return point_img
+
+def reproject_point(camera, point_3d):
+    import image_utils
+    reprojected_point = project_point_to_image(point_3d, camera)
+    updated_point = image_utils.fisheye_distort(reprojected_point, camera["distortion"], camera["intrinsic"])
+    return updated_point
+
+from scipy.optimize import least_squares
+import itertools
+
+def nonlinear_triangulation(cameras, pixels, pairwise=False):
+    def reprojection_error(point_3d):
+        error = []
+        for camera, pixel in zip(cameras, pixels):
+            reprojected_pixel = reproject_point(camera, point_3d)
+            error.append(reprojected_pixel - pixel)
+        return np.array(error).flatten()
+   
+    if pairwise: 
+      pairs = list(itertools.combinations(list(range(len(cameras))),2))
+      results = []
+      for i,j in pairs:
+        pixels_ = [pixels[idx] for idx in [i,j]]
+        cameras_ = [cameras[idx] for idx in [i,j]]
+        initial_guess = DLT(cameras_, pixels_, pairwise=True)
+        results.append(least_squares(reprojection_error, initial_guess[0], method='lm').x)
+      return results
+    else: 
+      initial_guess = DLT(cameras, pixels, pairwise=False)
+      result = least_squares(reprojection_error, initial_guess[0], method='lm')
+      return [result.x]
 
 
 
